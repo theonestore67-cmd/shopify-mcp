@@ -536,7 +536,7 @@ export function createShopifyMcpServer() {
       if (name === 'get_product_image') {
         const productId = String(args.product_id || '').replace(/^gid:\/\/shopify\/Product\//, '');
         const imageId = String(args.image_id || '').replace(/^gid:\/\/shopify\/ProductImage\//, '');
-        if (!/^\\d+$/.test(productId) || !/^\\d+$/.test(imageId)) {
+        if (!/^\d+$/.test(productId) || !/^\d+$/.test(imageId)) {
           throw new Error('Numeric product_id and image_id are required');
         }
 
