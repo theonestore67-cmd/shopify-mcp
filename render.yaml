@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: shopify-zakdor-mcp
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: SHOPIFY_SHOP_DOMAIN
+        value: zakdor.myshopify.com
+      - key: SHOPIFY_CLIENT_ID
+        value: 8709d8eac9cf22252841c705c9208f1a
+      - key: SHOPIFY_CLIENT_SECRET
+        sync: false
+      - key: SHOPIFY_API_VERSION
+        value: 2025-01
