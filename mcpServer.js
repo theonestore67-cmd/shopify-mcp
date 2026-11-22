@@ -79,6 +79,27 @@ export function createShopifyMcpServer() {
           },
         },
 
+        // Actual image content, not just a Shopify CDN URL.
+        // Only images that belong to the supplied Shopify product are accepted.
+        {
+          name: 'get_product_image',
+          description: 'Read an existing Shopify product image and return its actual JPEG/PNG/WebP bytes as MCP image content, enabling visual inspection of the original print and placement. Read-only. Requires the numeric product_id and image_id from get_product_by_id.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              product_id: {
+                type: 'string',
+                description: 'Numeric Shopify product ID from get_product_by_id',
+              },
+              image_id: {
+                type: 'string',
+                description: 'Numeric ID of one of that product\'s existing images',
+              },
+            },
+            required: ['product_id', 'image_id'],
+          },
+        },
+
         // ==========================================
         // 2. THEMES & ASSETS (LIQUID, CSS, JSON)
         // ==========================================
@@ -509,6 +530,95 @@ export function createShopifyMcpServer() {
             },
           ],
         };
+      }
+
+      // Read and return actual image pixels for visual verification of original artwork.
+      if (name === 'get_product_image') {
+        const productId = String(args.product_id || '').replace(/^gid:\/\/shopify\/Product\//, '');
+        const imageId = String(args.image_id || '').replace(/^gid:\/\/shopify\/ProductImage\//, '');
+        if (!/^\d+$/.test(productId) || !/^\d+$/.test(imageId)) {
+          throw new Error('Numeric product_id and image_id are required');
+        }
+
+        // Look up the image on this product first; do not accept arbitrary URLs.
+        const product = await shopify.getProductById(productId);
+        const item = (product.images || []).find(img => String(img.id) === imageId);
+        if (!item || !item.src) {
+          throw new Error('Image not found on the requested Shopify product');
+        }
+
+        const url = new URL(item.src);
+        if (url.protocol !== 'https:' || url.hostname !== 'cdn.shopify.com') {
+          throw new Error('Shopify image source is not an approved CDN host');
+        }
+
+        const maxBytes = 5 * 1024 * 1024;
+        const timeoutController = new AbortController();
+        const timeout = setTimeout(() => timeoutController.abort(), 15000);
+
+        try {
+          // No redirects: prevents following a product-media URL to an unrelated host.
+          const response = await fetch(url.toString(), {
+            redirect: 'error',
+            signal: timeoutController.signal,
+            headers: { Accept: 'image/jpeg, image/png, image/webp' },
+          });
+          if (!response.ok) {
+            throw new Error(`Shopify image download failed (${response.status})`);
+          }
+
+          const mimeType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+          if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+            throw new Error(`Unsupported product image format: ${mimeType || 'unknown'}`);
+          }
+          const declaredSize = Number(response.headers.get('content-length') || 0);
+          if (declaredSize > maxBytes) {
+            throw new Error('Product image exceeds the 5 MB visual inspection limit');
+          }
+          if (!response.body) {
+            throw new Error('Product image response has no body');
+          }
+
+          // Stream with a hard byte cap even when Content-Length is missing.
+          const reader = response.body.getReader();
+          const chunks = [];
+          let total = 0;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            total += value.byteLength;
+            if (total > maxBytes) {
+              await reader.cancel();
+              throw new Error('Product image exceeds the 5 MB visual inspection limit');
+            }
+            chunks.push(Buffer.from(value));
+          }
+          if (total === 0) throw new Error('Product image is empty');
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  product_id: productId,
+                  image_id: imageId,
+                  original_filename: item.alt || null,
+                  variant_ids: item.variant_ids || [],
+                  width: item.width || null,
+                  height: item.height || null,
+                  note: 'Actual image content follows. Verify the original print visually before creating mockups.',
+                }),
+              },
+              {
+                type: 'image',
+                data: Buffer.concat(chunks, total).toString('base64'),
+                mimeType,
+              },
+            ],
+          };
+        } finally {
+          clearTimeout(timeout);
+        }
       }
 
       // 2. Themes & Assets
