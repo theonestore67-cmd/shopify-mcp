@@ -20,7 +20,7 @@ export async function fetchSource({ product, color, imageId, expectedVariantIds,
   if (expectedVariantIds && selected.join(',') !== expectedVariantIds.map(String).join(','))
     throw new Error('Variant selection changed');
   const url = new URL(image.src);
-  if (url.protocol !== 'https:' || !/(^|\\.)cdn\\.shopify\\.com$/.test(url.hostname))
+  if (url.protocol !== 'https:' || url.hostname !== 'cdn.shopify.com' && !url.hostname.endsWith('.cdn.shopify.com'))
     throw new Error('Unexpected image host');
   const res = await fetchImpl(url.toString(), { signal: AbortSignal.timeout(20000) });
   if (!res.ok) throw new Error('Image fetch HTTP ' + res.status);
@@ -37,7 +37,7 @@ export async function fetchSource({ product, color, imageId, expectedVariantIds,
 
 export async function saveSource({ source, productId, color, side, root }) {
   if (!['FRONT','BACK'].includes(side)) throw new Error('Invalid source side');
-  if (!/^\\d+$/.test(String(productId)) || !/^[A-Za-z0-9 _-]{1,40}$/.test(color))
+  if (!Array.from(String(productId)).every(ch => ch >= '0' && ch <= '9') || !/^[A-Za-z0-9 _-]{1,40}$/.test(color))
     throw new Error('Invalid destination identifiers');
   const folder = path.join(root, 'Hoodies', String(productId), color, 'SOURCES');
   await mkdir(folder, { recursive: true });
