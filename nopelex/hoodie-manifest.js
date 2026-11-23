@@ -36,7 +36,15 @@ export function manifestFor({ product, color, sourceFront, sourceBack, collectio
   };
 }
 
-export function stagingReady(m) {\n  return ANGLES.every(a => {\n    const x = m.angles?.[a];\n    return x?.status === 'PASS' && x.file && x.sha256 && x.visualQc && x.driveReadback;\n  });\n}\n\nexport function publicationReady(m) {\n  if (!stagingReady(m)) return false;
+export function stagingReady(m) {
+  return ANGLES.every(a => {
+    const x = m.angles?.[a];
+    return x?.status === 'PASS' && x.file && x.sha256 && x.visualQc && x.driveReadback;
+  });
+}
+
+export function publicationReady(m) {
+  if (!stagingReady(m)) return false;
   return ANGLES.every(a => {
     const x = m.angles?.[a];
     return x?.status === 'PASS' && x.file && x.sha256 && x.visualQc &&
