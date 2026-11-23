@@ -21,6 +21,9 @@ export async function runHoodieJob({productId,color,frontImageId,backImageId,ada
   for (const [obj,methods] of [[shopify,['getProduct','getCollectionIds']],
     [renderer,['renderAngle']],[quality,['verifyAngle','verifySet']],
     [drive,['put','get']]]) for(const method of methods) requireFn(obj,method);
+  if (!/^\\d+$/.test(String(productId))) throw new Error('Invalid product ID');
+  if (typeof color !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$/.test(color))
+    throw new Error('Unsafe or invalid color');
   const product=await shopify.getProduct(String(productId));
   const collectionIds=await shopify.getCollectionIds(String(productId));
   const front=await fetchSource({product,color,imageId:frontImageId});
