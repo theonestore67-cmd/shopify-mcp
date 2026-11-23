@@ -1,0 +1,17 @@
+name: NOPELEX Hoodie Pipeline Tests
+on:
+  push:
+    branches: [feature/nopelex-hoodie-source-pipeline]
+  pull_request:
+    paths: ['nopelex/**', '.github/workflows/nopelex-hoodies.yml']
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test nopelex/hoodie-pipeline.test.js
