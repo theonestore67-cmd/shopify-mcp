@@ -30,13 +30,23 @@ async function main() {
   const backId = id(required('NOPELEX_BACK_IMAGE_ID'));
   const root = path.resolve(process.env.NOPELEX_STAGING_DIR || './nopelex-staging');
 
-  // Shopify REST: prove collection membership before downloading.
-  const membership = await shopify.executeRest({
-    method: 'GET', endpoint: 'collects.json',
-    params: { collection_id: COLLECTION_ID, product_id: productId, limit: 10 }
+  // GraphQL product collection membership works for custom and smart collections.
+  const collectionResult = await shopify.executeGraphQL({
+    query: `query HoodieMembership($id: ID!) {
+      product(id: $id) {
+        id
+        collections(first: 100) { nodes { id title } pageInfo { hasNextPage } }
+      }
+    }`,
+    variables: { id: 'gid://shopify/Product/' + productId }
   });
-  const collectionProductIds = (membership.collects || []).map(x => String(x.product_id));
-  if (!collectionProductIds.includes(productId))
+  const collectionNodes = collectionResult.data?.product?.collections;
+  if (!collectionNodes || collectionNodes.pageInfo?.hasNextPage)
+    throw new Error('Unable to exhaustively verify collection membership');
+  const collectionProductIds = collectionNodes.nodes.some(
+    node => node.id === 'gid://shopify/Collection/' + COLLECTION_ID
+  ) ? [productId] : [];
+  if (!collectionProductIds.length)
     throw new Error('Product is not verified in NOPELEX Hoodies collection');
 
   const product = await shopify.getProductById(productId);
