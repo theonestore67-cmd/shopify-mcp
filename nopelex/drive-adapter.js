@@ -4,7 +4,7 @@
  * GOOGLE_DRIVE_REFRESH_TOKEN, GOOGLE_DRIVE_ROOT_FOLDER_ID.
  * No credentials are committed to source control.
  */
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 const sha = b => createHash('sha256').update(b).digest('hex');
 const requireEnv = k => { if(!process.env[k]) throw new Error('Missing '+k); return process.env[k]; };
@@ -33,7 +33,7 @@ export class DriveAdapter {
     const key=parent+'/'+name;if(this.cache.has(key)) return this.cache.get(key);
     const q=`name = '${quote(name)}' and '${quote(parent)}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
     const u=new URL(DRIVE+'/files');u.searchParams.set('q',q);u.searchParams.set('fields','nextPageToken,files(id,name)');
-    u.searchParams.set('page_size','100');
+    u.searchParams.set('pageSize','100');
     const result=await (await this.request(u)).json();
     if(result.nextPageToken) throw new Error('Folder listing pagination unsupported: fail closed');
     if(result.files.length>1) throw new Error('Ambiguous Drive folder '+name);
@@ -70,7 +70,7 @@ export class DriveAdapter {
       if(sha(current)!==sha(bytes)) throw new Error('Drive filename conflict with different content');
       return {id:existing.id,sha256:sha(bytes)};
     }
-    const boundary='nopelex_'+crypto.randomUUID().replaceAll('-','');
+    const boundary='nopelex_'+randomUUID().replaceAll('-','');
     const meta=JSON.stringify({name,parents:[parent]});
     const body=Buffer.concat([
       Buffer.from('--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+meta+'\r\n'),
