@@ -28,30 +28,9 @@ export class ShopifyHoodieAdapter {
     const actual=product.variants.filter(v=>v.option1===color).map(v=>String(v.id));
     if(actual.length!==variantIds.length||actual.some(v=>!variantIds.includes(v)))
       throw new Error('Variant IDs changed; refusing publish');
-    const ext=mime==='image/png'?'png':mime==='image/webp'?'webp':'jpg';
-    const filename='NOPELEX-'+productId+'-'+color.replace(/[^a-z0-9]/gi,'_')+'-'+angle+'.'+ext;
-    const staged=assertGraphQL(await client.executeGraphQL({
-      query:`mutation Stage($input:[StagedUploadInput!]!){stagedUploadsCreate(input:$input){stagedTargets{url resourceUrl parameters{name value}} userErrors{field message}}}`,
-      variables:{input:[{resource:'IMAGE',filename,mimeType:mime,httpMethod:'POST',fileSize:String(bytes.length)}]}
-    }));
-    const stage=staged.stagedUploadsCreate;
-    if(stage.userErrors?.length || stage.stagedTargets?.length!==1) throw new Error('Staged upload failed');
-    const target=stage.stagedTargets[0];
-    const form=new FormData();
-    for(const p of target.parameters) form.append(p.name,p.value);
-    form.append('file',new Blob([bytes],{type:mime}),filename);
-    const upload=await fetch(target.url,{method:'POST',body:form});
-    if(!upload.ok) throw new Error('Shopify staged upload HTTP '+upload.status);
-    const created=assertGraphQL(await client.executeGraphQL({
-      query:`mutation AddMedia($product:ID!,$media:[CreateMediaInput!]!){productCreateMedia(productId:$product,media:$media){media{id status} mediaUserErrors{field message}}}`,
-      variables:{product:gid('Product',productId),media:[{originalSource:target.resourceUrl,mediaContentType:'IMAGE',alt:'NOPELEX '+color+' '+angle}]}
-    }));
-    const out=created.productCreateMedia;
-    if(out.mediaUserErrors?.length || out.media?.length!==1 || !out.media[0].id)
-      throw new Error('Shopify media creation failed');
-    // Media is NOT associated to variants until the exact variant association is implemented.
-    // Fail closed instead of claiming correct-color publishing.
-    throw new Error('Media created but variant association not yet implemented: '+out.media[0].id);
+    // No partial mutation: variant association and verification must be available
+    // before creating any Shopify media.
+    throw new Error('Safe Shopify publishing unavailable until variant media association is implemented');
   }
   async verifyMedia() { throw new Error('Shopify variant association verification not implemented'); }
 }
