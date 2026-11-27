@@ -35,6 +35,8 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     shop: shopify.shop || 'not-configured',
+    store_slot: shopify.storeSlot,
+    shopify_authentication: 'not-checked-by-health-endpoint',
     timestamp: new Date().toISOString(),
     active_sessions: transports.size,
   });
@@ -93,10 +95,11 @@ app.listen(PORT, () => {
   console.log(`🚀 Shopify MCP Server is running!`);
   console.log(`Local SSE URL   : http://localhost:${PORT}/sse`);
   console.log(`Health Check    : http://localhost:${PORT}/health`);
-  console.log(`Target Store    : ${process.env.SHOPIFY_SHOP_DOMAIN || '(Check .env)'}`);
+  console.log(`Target Store    : ${shopify.shop} (slot ${shopify.storeSlot})`);
   console.log('====================================================');
   console.log('For Claude Developer / Remote connection:');
   console.log(`Expose port ${PORT} using Cloudflare Tunnel or ngrok to get an HTTPS URL.`);
   console.log('Example: cloudflared tunnel --url http://localhost:3000');
   console.log('Then paste https://<tunnel-domain>/sse into Claude.');
 });
+

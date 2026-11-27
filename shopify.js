@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { resolveStoreConfig } from './storeConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -8,10 +9,12 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 class ShopifyClient {
   constructor() {
-    this.shop = (process.env.SHOPIFY_SHOP_DOMAIN || '').replace(/^https?:\/\//, '').replace(/\/+$/, '');
-    this.clientId = process.env.SHOPIFY_CLIENT_ID || '';
-    this.clientSecret = process.env.SHOPIFY_CLIENT_SECRET || '';
-    this.apiVersion = process.env.SHOPIFY_API_VERSION || '2025-01';
+    const config = resolveStoreConfig();
+    this.storeSlot = config.slot;
+    this.shop = config.shop;
+    this.clientId = config.clientId;
+    this.clientSecret = config.clientSecret;
+    this.apiVersion = config.apiVersion;
 
     this.cachedToken = null;
     this.tokenExpiresAt = 0;
@@ -553,3 +556,4 @@ class ShopifyClient {
 }
 
 export const shopify = new ShopifyClient();
+

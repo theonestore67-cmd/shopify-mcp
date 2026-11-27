@@ -522,7 +522,7 @@ export function createShopifyMcpServer() {
                   status: 'connected',
                   shop: shopify.shop,
                   token_preview: token ? `${token.substring(0, 10)}...` : null,
-                  message: 'Successfully authenticated with Zakdor store.',
+                  message: `Successfully authenticated with ${shopify.shop}.`,
                 },
                 null,
                 2
@@ -801,3 +801,4 @@ export function createShopifyMcpServer() {
 
   return server;
 }
+
