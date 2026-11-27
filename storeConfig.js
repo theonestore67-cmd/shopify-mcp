@@ -1,9 +1,10 @@
 const KEYS = ['SHOPIFY_SHOP_DOMAIN', 'SHOPIFY_CLIENT_ID', 'SHOPIFY_CLIENT_SECRET'];
+export const STORE_SLOTS = ['1', '2'];
 
 // Select a complete credential set. Never mix credentials between stores.
-export function resolveStoreConfig(env = process.env) {
-  const slot = String(env.SHOPIFY_ACTIVE_STORE || '1').trim();
-  if (!['1', '2'].includes(slot)) throw new Error('SHOPIFY_ACTIVE_STORE must be 1 or 2');
+export function resolveStoreConfig(env = process.env, requestedSlot = null) {
+  const slot = String(requestedSlot || env.SHOPIFY_ACTIVE_STORE || '1').trim();
+  if (!STORE_SLOTS.includes(slot)) throw new Error('Store selector must be 1 or 2');
   const suffixes = slot === '1' ? [''] : ['_2', '2'];
   const groups = suffixes.map(suffix => ({
     suffix,
@@ -22,3 +23,4 @@ export function resolveStoreConfig(env = process.env) {
   }
   return { slot, shop, clientId: group.values[1], clientSecret: group.values[2], apiVersion: String(env.SHOPIFY_API_VERSION || '2025-01').trim() };
 }
+
