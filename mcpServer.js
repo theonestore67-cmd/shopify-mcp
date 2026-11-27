@@ -56,6 +56,10 @@ export function createShopifyMcpServer() {
                 type: 'object',
                 description: 'Optional variables for the GraphQL query/mutation',
               },
+              api_version: {
+                type: 'string',
+                description: 'Optional Shopify Admin API version override, for example 2026-10.',
+              },
             },
             required: ['query'],
           },
@@ -557,7 +561,11 @@ export function createShopifyMcpServer() {
       // 1. Universal Tools
       if (name === 'shopify_graphql_query') {
         if (!args.query) throw new Error('Parameter "query" is required');
-        const res = await shopify.executeGraphQL({ query: args.query, variables: args.variables });
+        const res = await shopify.executeGraphQL({
+          query: args.query,
+          variables: args.variables,
+          apiVersion: args.api_version,
+        });
         return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
       }
 
