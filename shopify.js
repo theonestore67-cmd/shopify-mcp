@@ -8,8 +8,8 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 class ShopifyClient {
-  constructor() {
-    const config = resolveStoreConfig();
+  constructor(storeSlot = null) {
+    const config = resolveStoreConfig(process.env, storeSlot);
     this.storeSlot = config.slot;
     this.shop = config.shop;
     this.clientId = config.clientId;
@@ -555,5 +555,21 @@ class ShopifyClient {
   }
 }
 
-export const shopify = new ShopifyClient();
+const clients = new Map();
+
+export function getShopifyClient(storeSlot = null) {
+  const slot = String(storeSlot || process.env.SHOPIFY_ACTIVE_STORE || '1').trim();
+  if (!clients.has(slot)) {
+    clients.set(slot, new ShopifyClient(slot));
+  }
+  return clients.get(slot);
+}
+
+export function getShopifyClients() {
+  return ['1', '2'].map((slot) => getShopifyClient(slot));
+}
+
+// Backward-compatible default client for the server health endpoint.
+export const shopify = getShopifyClient();
+
 
