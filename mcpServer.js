@@ -3,13 +3,30 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { shopify } from './shopify.js';
+import { getShopifyClient } from './shopify.js';
+
+function withStoreSelector(tools) {
+  return tools.map((tool) => ({
+    ...tool,
+    inputSchema: {
+      ...tool.inputSchema,
+      properties: {
+        store: {
+          type: 'string',
+          enum: ['1', '2'],
+          description: 'Shopify store slot: 1 = primary store, 2 = secondary store. Required for store-specific operations when both stores are connected.',
+        },
+        ...(tool.inputSchema?.properties || {}),
+      },
+    },
+  }));
+}
 
 export function createShopifyMcpServer() {
   const server = new Server(
     {
       name: 'shopify-zakdor-mcp',
-      version: '2.0.0',
+      version: '2.1.0',
     },
     {
       capabilities: {
@@ -21,7 +38,7 @@ export function createShopifyMcpServer() {
   // Define tools available to Claude
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
-      tools: [
+      tools: withStoreSelector([
         // ==========================================
         // 1. UNIVERSAL TOOLS (100% SHOPIFY CAPABILITY)
         // ==========================================
@@ -484,15 +501,59 @@ export function createShopifyMcpServer() {
             },
           },
         },
-      ],
+      ]),
     };
   });
 
   // Handle tool calls from Claude
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args = {} } = request.params;
+    const { name, arguments: rawArgs = {} } = request.params;
+    const { store, ...args } = rawArgs;
 
     try {
+      if (name === 'ping_store') {
+        const slots = store ? [store] : ['1', '2'];
+        const stores = await Promise.all(
+          slots.map(async (slot) => {
+            try {
+              const client = getShopifyClient(slot);
+              await client.getAccessToken();
+              return {
+                slot: client.storeSlot,
+                status: 'connected',
+                shop: client.shop,
+                message: `Successfully authenticated with ${client.shop}.`,
+              };
+            } catch (error) {
+              return {
+                slot,
+                status: 'error',
+                shop: null,
+                message: error.message,
+              };
+            }
+          })
+        );
+        const allConnected = stores.every((item) => item.status === 'connected');
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  status: allConnected ? 'connected' : 'partial',
+                  stores,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      const shopify = getShopifyClient(store);
+
       // 1. Universal Tools
       if (name === 'shopify_graphql_query') {
         if (!args.query) throw new Error('Parameter "query" is required');
@@ -509,27 +570,6 @@ export function createShopifyMcpServer() {
           body: args.body,
         });
         return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
-      }
-
-      if (name === 'ping_store') {
-        const token = await shopify.getAccessToken();
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                {
-                  status: 'connected',
-                  shop: shopify.shop,
-                  token_preview: token ? `${token.substring(0, 10)}...` : null,
-                  message: `Successfully authenticated with ${shopify.shop}.`,
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
       }
 
       // Read and return actual image pixels for visual verification of original artwork.
@@ -801,4 +841,5 @@ export function createShopifyMcpServer() {
 
   return server;
 }
+
 
