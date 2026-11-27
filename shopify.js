@@ -301,9 +301,13 @@ class ShopifyClient {
   /**
    * Execute any Shopify Admin GraphQL Query or Mutation
    */
-  async executeGraphQL({ query, variables = {} }) {
+  async executeGraphQL({ query, variables = {}, apiVersion = null }) {
     const token = await this.getAccessToken();
-    const url = `https://${this.shop}/admin/api/${this.apiVersion}/graphql.json`;
+    const version = String(apiVersion || this.apiVersion).trim();
+    if (!/^(?:\d{4}-\d{2}|unstable)$/.test(version)) {
+      throw new Error('Invalid Shopify API version override');
+    }
+    const url = `https://${this.shop}/admin/api/${version}/graphql.json`;
 
     const res = await fetch(url, {
       method: 'POST',
